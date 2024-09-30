@@ -1,6 +1,6 @@
-# unplugin-starter
+# unplugin-glob-entry
 
-[![NPM version](https://img.shields.io/npm/v/unplugin-starter?color=a1b858&label=)](https://www.npmjs.com/package/unplugin-starter)
+[![NPM version](https://img.shields.io/npm/v/unplugin-glob-entry?color=a1b858&label=)](https://www.npmjs.com/package/unplugin-glob-entry)
 
 Starter template for [unplugin](https://github.com/unjs/unplugin).
 
@@ -9,10 +9,10 @@ Starter template for [unplugin](https://github.com/unjs/unplugin).
 To use this template, clone it down using:
 
 ```bash
-npx degit unplugin/unplugin-starter my-unplugin
+npx degit unplugin/unplugin-glob-entry my-unplugin
 ```
 
-And do a global replacement of `unplugin-starter` with your plugin name.
+And do a global replacement of `unplugin-glob-entry` with your plugin name.
 
 Then you can start developing your unplugin 🔥
 
@@ -22,7 +22,7 @@ To release a new version, run: `pnpm run release`
 ## Install
 
 ```bash
-npm i unplugin-starter
+npm i unplugin-glob-entry
 ```
 
 <details>
@@ -30,11 +30,13 @@ npm i unplugin-starter
 
 ```ts
 // vite.config.ts
-import Starter from 'unplugin-starter/vite'
+import Starter from 'unplugin-glob-entry/vite'
 
 export default defineConfig({
   plugins: [
-    Starter({ /* options */ }),
+    Starter({
+      /* options */
+    }),
   ],
 })
 ```
@@ -48,11 +50,13 @@ Example: [`playground/`](./playground/)
 
 ```ts
 // rollup.config.js
-import Starter from 'unplugin-starter/rollup'
+import Starter from 'unplugin-glob-entry/rollup'
 
 export default {
   plugins: [
-    Starter({ /* options */ }),
+    Starter({
+      /* options */
+    }),
   ],
 }
 ```
@@ -67,8 +71,10 @@ export default {
 module.exports = {
   /* ... */
   plugins: [
-    require('unplugin-starter/webpack')({ /* options */ })
-  ]
+    require('unplugin-glob-entry/webpack')({
+      /* options */
+    }),
+  ],
 }
 ```
 
@@ -81,7 +87,12 @@ module.exports = {
 // nuxt.config.js
 export default defineNuxtConfig({
   modules: [
-    ['unplugin-starter/nuxt', { /* options */ }],
+    [
+      'unplugin-glob-entry/nuxt',
+      {
+        /* options */
+      },
+    ],
   ],
 })
 ```
@@ -98,7 +109,9 @@ export default defineNuxtConfig({
 module.exports = {
   configureWebpack: {
     plugins: [
-      require('unplugin-starter/webpack')({ /* options */ }),
+      require('unplugin-glob-entry/webpack')({
+        /* options */
+      }),
     ],
   },
 }
@@ -112,7 +125,7 @@ module.exports = {
 ```ts
 // esbuild.config.js
 import { build } from 'esbuild'
-import Starter from 'unplugin-starter/esbuild'
+import Starter from 'unplugin-glob-entry/esbuild'
 
 build({
   plugins: [Starter()],
