@@ -43,9 +43,12 @@ export default function WebpackPluginGlobEntry(options: Options) {
 	function getDynamicEntries(paths: Array<string>): WebpackEntries {
 		return paths.reduce((acc, p) => {
 			acc[formatPath(p)] = {
-				import: [p],
+				import: [`./${p}`],
 				asyncChunks: true,
-				chunkLoading: "import-scripts",
+				library: {
+					type: "module",
+				},
+				// chunkLoading: "import-scripts",
 			};
 			return acc;
 		}, {} as WebpackEntries);
@@ -53,7 +56,7 @@ export default function WebpackPluginGlobEntry(options: Options) {
 
 	async function generateImportMap(
 		compilation: Webpack.Compilation | Rspack.Compilation,
-	): Promise<Record<string, string> | null> {
+	): Promise<{ imports: Record<string, string> } | null> {
 		const stats = compilation.getStats().toJson({
 			all: false,
 			entrypoints: true,
@@ -90,7 +93,7 @@ export default function WebpackPluginGlobEntry(options: Options) {
 					{} as Record<string, string>,
 				);
 
-			return imports;
+			return { imports };
 		}
 		return null;
 	}
@@ -110,6 +113,8 @@ export default function WebpackPluginGlobEntry(options: Options) {
 				logger?.warn("Setting output.module = true for native import support.");
 				compiler.options.output.module = true;
 			}
+			compiler.options.output.enabledLibraryTypes ??= [];
+			compiler.options.output.enabledLibraryTypes.push("module");
 
 			// Add glob results as entry points. Nice of Webpack to include this!
 			new compiler.webpack.DynamicEntryPlugin(compiler.context, async () =>
@@ -123,7 +128,7 @@ export default function WebpackPluginGlobEntry(options: Options) {
 						name: "StatsPlugin",
 						// There are several stages where Webpack plugins can modify assets; this is the
 						// last one, intended for "creating assets for the reporting purposes"
-						stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_REPORT,
+						stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
 					},
 					async (assets) => {
 						const importmap = await generateImportMap(compilation);

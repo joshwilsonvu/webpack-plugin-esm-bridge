@@ -67,7 +67,7 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (
 			acc[formatPath(p, base)] = {
 				import: [p],
 				asyncChunks: true,
-				chunkLoading: "import",
+				// chunkLoading: "import",
 			};
 			return acc;
 		}, {} as WebpackEntries);
