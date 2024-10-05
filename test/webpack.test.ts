@@ -8,7 +8,7 @@ import { fs, vol } from "memfs";
 import webpack from "webpack";
 import merge from "webpack-merge";
 import * as esModuleLexer from "es-module-lexer";
-import GlobEntryPlugin from "../../src/webpack";
+import GlobEntryPlugin from "../src/webpack";
 
 const mockConsole = new Console(new Writable());
 
@@ -55,9 +55,12 @@ function setup({ files, ...extendConfig }: Setup = {}) {
 		return new Promise((resolve) => compiler.close(() => resolve()));
 	});
 
-	const run = promisify(compiler.run.bind(compiler));
+	return compiler;
+}
 
-	return run;
+function run(compiler: webpack.Compiler) {
+	const runPromise = promisify(compiler.run.bind(compiler));
+	return runPromise();
 }
 
 function checkStats(stats?: webpack.Stats): asserts stats {
@@ -74,14 +77,14 @@ function checkStats(stats?: webpack.Stats): asserts stats {
 }
 
 test("doesn't crash", async () => {
-	const run = setup();
-	const stats = await run();
+	const compiler = setup();
+	const stats = await run(compiler);
 	checkStats(stats);
 });
 
 test("includes correct entrypoints", async () => {
-	const run = setup();
-	const stats = await run();
+	const compiler = setup();
+	const stats = await run(compiler);
 	checkStats(stats);
 
 	const { entrypoints } = stats.toJson({ all: false, entrypoints: true });
@@ -92,8 +95,8 @@ test("includes correct entrypoints", async () => {
 });
 
 test("emits correct assets", async () => {
-	const run = setup();
-	const stats = await run();
+	const compiler = setup();
+	const stats = await run(compiler);
 	checkStats(stats);
 
 	const { assets } = stats.toJson({
@@ -108,8 +111,8 @@ test("emits correct assets", async () => {
 });
 
 test("emits correct import map", async () => {
-	const run = setup();
-	const stats = await run();
+	const compiler = setup();
+	const stats = await run(compiler);
 	checkStats(stats);
 
 	const importmap = JSON.parse(
@@ -124,9 +127,8 @@ test("emits correct import map", async () => {
 });
 
 test("emitted files preserve exports", async () => {
-	const run = setup();
-
-	const stats = await run(); // ?.toJson();
+	const compiler = setup();
+	const stats = await run(compiler);
 	checkStats(stats);
 
 	const { assets, entrypoints } = stats.toJson({
@@ -161,4 +163,58 @@ test("emitted files preserve exports", async () => {
 	expect(hasModuleSyntax).toBe(true);
 	expect(exports[0]).toHaveProperty("n", "default"); // n=name
 	expect(distA).toMatch(/console\.log\(['"]a['"]\)/);
+});
+
+function pushToPull<T>(
+	nodeCbFn: (cb: (err: unknown, result?: T | null) => void) => void,
+): AsyncGenerator<Awaited<T> | undefined | null, void> {
+	const pending: Array<Promise<T | undefined | null>> = [];
+	let lastYielded: PromiseWithResolvers<T | undefined | null> | null = null;
+
+	const cb = (err: unknown, result?: T | null) => {
+		if (err != null) {
+			if (lastYielded) {
+				lastYielded.reject(err);
+				lastYielded = null;
+			} else {
+				pending.push(Promise.reject(err));
+			}
+		} else {
+			if (lastYielded) {
+				lastYielded.resolve(result);
+				lastYielded = null;
+			} else {
+				pending.push(Promise.resolve(result));
+			}
+		}
+	};
+
+	async function* generator() {
+		while (true) {
+			if (pending.length === 0) {
+				lastYielded = Promise.withResolvers<T | undefined | null>();
+				yield lastYielded.promise;
+			} else {
+				yield pending.shift()!;
+			}
+		}
+	}
+
+	nodeCbFn(cb); // pass cb to node-style fn, which will start providing values to the generator
+
+	return generator();
+}
+
+async function* watch(compiler: webpack.Compiler) {
+	yield* pushToPull(compiler.watch.bind(compiler, {}));
+}
+
+test.skip("watch mode picks up new files", async ({ onTestFinished }) => {
+	const compiler = setup();
+
+	for await (const stats of watch(compiler)) {
+		// TODO: how to get watching?
+	}
+	// const watching = compiler.watch(
+	// onTestFinished(promisify(watching.close.bind(compiler)));
 });
