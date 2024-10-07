@@ -1,3 +1,8 @@
+/**
+ * These tests are almost identical to webpack.test.ts; diff the files to see that the differences
+ * are all API and types. The tests are copied primarily to avoid issues with TypeScript.
+ */
+
 import "./polyfill";
 
 import fs from "node:fs/promises";
@@ -8,18 +13,28 @@ import { Writable } from "node:stream";
 
 import { describe, expect, onTestFinished } from "vitest";
 
-import webpack from "webpack";
+import { rspack } from "@rspack/core";
 import merge from "webpack-merge";
 import * as esModuleLexer from "es-module-lexer";
 
-import GlobEntryPlugin from "../src/webpack.js";
+import GlobEntryPlugin from "../src/rspack.js";
 
 import test from "./utils/testWithTmp.js";
 import { writeFiles } from "./utils/files.js";
 
+// Rspack doesn't export these types
+type Compiler = any;
+type Stats = {
+	hasErrors(): boolean;
+	toJson(options: Record<string, boolean>): Record<string, any>;
+};
+type WatchFn = (cb: (err: Error | null, result?: Stats) => void) => {
+	close: (cb: (err: Error | null) => void) => void;
+};
+
 const mockConsole = new Console(new Writable());
 
-const config: webpack.Configuration = {
+const config = {
 	// context added in each test
 	entry: {},
 	output: {
@@ -44,9 +59,9 @@ async function setup(rootDir: string, files: Record<string, string> = {}) {
 	const extendedConfig = merge(config, {
 		context: path.join(rootDir, "src"),
 		output: { path: path.join(rootDir, "dist") },
-	});
+	} as any);
 
-	const compiler = webpack(extendedConfig);
+	const compiler = rspack(extendedConfig);
 
 	onTestFinished(() => {
 		return promisify(compiler.close.bind(compiler))();
@@ -63,7 +78,7 @@ async function setup(rootDir: string, files: Record<string, string> = {}) {
 	return compiler;
 }
 
-function checkStats(stats?: webpack.Stats): asserts stats {
+function checkStats(stats?: Stats): asserts stats {
 	expect(stats).toBeDefined();
 	if (stats?.hasErrors()) {
 		const { errors } = stats.toJson({
@@ -77,7 +92,7 @@ function checkStats(stats?: webpack.Stats): asserts stats {
 }
 
 describe("run", () => {
-	function run(compiler: webpack.Compiler) {
+	function run(compiler: Compiler) {
 		const runPromise = promisify(compiler.run.bind(compiler));
 		return runPromise();
 	}
@@ -109,11 +124,9 @@ describe("run", () => {
 			all: false,
 			assets: true,
 		});
-		expect(assets?.map((asset) => asset.name).sort()).toEqual([
-			"a.entry.js.mjs",
-			"b.entry.js.mjs",
-			"importmap.json",
-		]);
+		expect(assets?.map((asset: { name: string }) => asset.name).sort()).toEqual(
+			["a.entry.js.mjs", "b.entry.js.mjs", "importmap.json"],
+		);
 	});
 
 	test("emits correct import map", async ({ tmp }) => {
@@ -216,7 +229,9 @@ describe("watch", () => {
 	test("picks up new files", async ({ tmp, onTestFailed, onTestFinished }) => {
 		const compiler = await setup(tmp);
 
-		const [generator, watching] = pushToPull(compiler.watch.bind(compiler, {}));
+		const [generator, watching] = pushToPull(
+			compiler.watch.bind(compiler, {}) as WatchFn,
+		);
 		onTestFinished(() => promisify(watching.close.bind(watching))());
 		onTestFailed(() => {
 			generator.return();
@@ -268,7 +283,9 @@ describe("watch", () => {
 	}) => {
 		const compiler = await setup(tmp);
 
-		const [generator, watching] = pushToPull(compiler.watch.bind(compiler, {}));
+		const [generator, watching] = pushToPull(
+			compiler.watch.bind(compiler, {}) as WatchFn,
+		);
 		onTestFinished(() => promisify(watching.close.bind(watching))());
 		onTestFailed(() => {
 			generator.return();

@@ -1,7 +1,7 @@
 import type * as Webpack from "webpack";
 import type * as Rspack from "@rspack/core";
-import type { Options } from "../types";
-import { formatAsset, formatPath, loadPaths } from "./paths";
+import type { Options } from "../types.js";
+import { formatAsset, formatPath, loadPaths } from "./paths.js";
 
 const PLUGIN_NAME = "glob-entry";
 
