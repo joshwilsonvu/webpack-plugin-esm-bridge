@@ -180,6 +180,27 @@ describe("run", () => {
 		);
 	});
 
+	test("import map respects non-root public path", async ({ tmp }) => {
+		const compiler = await setup(tmp, {
+			config: merge(config, {
+				output: { publicPath: "/public" },
+			}),
+		});
+		const stats = await run(compiler);
+		checkStats(stats);
+
+		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
+
+		expect(importmap).toBe(
+			JSON.stringify({
+				imports: {
+					"a.entry.js": "/public/a.entry.js.mjs",
+					"b/b.entry.js": "/public/b/b.entry.js.mjs",
+				},
+			}),
+		);
+	});
+
 	test("emitted files preserve exports", async ({ tmp }) => {
 		const compiler = await setup(tmp);
 		const stats = await run(compiler);
