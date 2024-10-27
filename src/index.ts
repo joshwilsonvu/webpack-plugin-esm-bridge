@@ -7,7 +7,7 @@ import type * as Webpack from "webpack";
 import type * as Rspack from "@rspack/core";
 import type * as Rollup from "rollup";
 import type * as Rolldown from "rolldown";
-import type { Options } from "./types";
+import type { Options } from "./types.js";
 
 type WebpackEntries = Record<
 	string,
@@ -39,6 +39,7 @@ function loadPaths(
 export const unpluginFactory: UnpluginFactory<Options | undefined> = (
 	options,
 ) => {
+	// biome-ignore lint/style/noParameterAssign: yolo
 	options ??= { patterns: [] };
 	options.patterns ??= [];
 
@@ -148,9 +149,9 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (
 					!Array.isArray(input)
 				) {
 					// Load it up!
-					(await getFreshPaths()).forEach((p) => {
+					for (const p of (await getFreshPaths())) {
 						input[formatPath(p)] ??= p;
-					});
+					}
 					options.input = input;
 				} else {
 					this.warn("Internal error: options.input should be an object.");
@@ -238,13 +239,14 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (
 				if (env.command === "build") {
 					config.build ??= {};
 					config.build.rollupOptions ??= {};
-					const input = (config.build.rollupOptions.input = objectifyInput(
+					config.build.rollupOptions.input = objectifyInput(
 						config.build.rollupOptions.input ?? {},
-					));
+					);
+					const input = config.build.rollupOptions.input;
 					// Load it up!
-					(await getFreshPaths()).forEach((p) => {
+					for (const p of await getFreshPaths()) {
 						input[formatPath(p)] ??= p;
-					});
+					}
 				}
 			},
 		},
@@ -252,11 +254,12 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (
 		farm: {
 			async config(config) {
 				config.compilation ??= {};
-				const input = (config.compilation.input ??= {});
+				config.compilation.input ??= {};
+				const input = config.compilation.input;
 				// Load it up!
-				(await getFreshPaths()).forEach((p) => {
+				for (const p of await getFreshPaths()) {
 					input[formatPath(p)] ??= p;
-				});
+				}
 				return config;
 			},
 		},

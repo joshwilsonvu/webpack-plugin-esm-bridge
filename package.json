@@ -77,7 +77,7 @@
 		"build": "tsup",
 		"dev": "tsup --watch src",
 		"build:fix": "esno scripts/postbuild.ts",
-		"lint": "biome lint .",
+		"lint": "biome lint --diagnostic-level=warn .",
 		"format": "biome format --write .",
 		"prepublishOnly": "npm run build",
 		"release": "bumpp && npm publish",

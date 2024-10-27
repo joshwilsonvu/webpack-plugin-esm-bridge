@@ -1,1 +1,1 @@
-export { default } from "./utils/webpack";
+export { default } from "./utils/webpack.js";

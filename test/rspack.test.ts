@@ -14,7 +14,7 @@ import { Writable } from "node:stream";
 import { describe, expect, onTestFinished } from "vitest";
 
 import { rspack } from "@rspack/core";
-import merge, { mergeWithCustomize, customizeArray } from "webpack-merge";
+import { merge, mergeWithCustomize, customizeArray } from "webpack-merge";
 import * as esModuleLexer from "es-module-lexer";
 
 import GlobEntryPlugin from "../src/rspack.js";

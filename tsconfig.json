@@ -2,13 +2,14 @@
 	"compilerOptions": {
 		"target": "ESNext",
 		"lib": ["esnext"],
-		"module": "Preserve",
+		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
 		"allowJs": true,
 		"resolveJsonModule": true,
 		"strict": true,
 		"strictNullChecks": true,
-		"esModuleInterop": true
+		"esModuleInterop": true,
+		"noEmit": true
 	},
 	"exclude": ["dist"]
 }

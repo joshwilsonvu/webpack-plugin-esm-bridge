@@ -7,6 +7,7 @@ interface TmpFixture {
 }
 
 export default test.extend<TmpFixture>({
+	// biome-ignore lint/correctness/noEmptyPattern: Vitest needs it
 	tmp: async ({}, use) => {
 		// create ./tmp dir if necessary
 		const tmpRoot = path.resolve(import.meta.dirname, "..", "tmp");
