@@ -18,12 +18,14 @@ export default function WebpackPluginGlobEntry(options: Options) {
 		: [];
 
 	const importMapFileName = options.importMapFileName ?? "importmap.json";
+	const importMapPrefix = (options.importMapPrefix ?? "").replace(/\/$/, "");
 
 	let _paths: Array<string> | null = null; // cache
 	async function getFreshPaths(
 		compiler: Webpack.Compiler | Rspack.Compiler,
 	): Promise<Array<string>> {
 		_paths = await loadPaths(patterns, {
+			baseNameMatch: true,
 			cwd: compiler.context,
 			fs: (compiler.inputFileSystem ?? (await import("node:fs"))) as any,
 		});
@@ -75,6 +77,9 @@ export default function WebpackPluginGlobEntry(options: Options) {
 				.filter(([entrypoint]) => pathsSet.has(entrypoint))
 				.reduce(
 					(imports, [entrypoint, desc]) => {
+						if (importMapPrefix) {
+							entrypoint = `${importMapPrefix}/${entrypoint}`;
+						}
 						const outputFile = desc.assets?.filter(
 							(asset) =>
 								!/\.(?:map|gz|br)$/.test(asset.name) && !("info" in asset),
@@ -114,7 +119,9 @@ export default function WebpackPluginGlobEntry(options: Options) {
 				compiler.options.output.module = true;
 			}
 			compiler.options.output.enabledLibraryTypes ??= [];
-			compiler.options.output.enabledLibraryTypes.push("module");
+			if (!compiler.options.output.enabledLibraryTypes.includes("module")) {
+				compiler.options.output.enabledLibraryTypes.push("module");
+			}
 
 			// Add glob results as entry points. Nice of Webpack to include this!
 			new compiler.webpack.DynamicEntryPlugin(compiler.context, async () =>

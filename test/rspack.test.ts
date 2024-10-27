@@ -14,13 +14,17 @@ import { Writable } from "node:stream";
 import { describe, expect, onTestFinished } from "vitest";
 
 import { rspack } from "@rspack/core";
-import merge from "webpack-merge";
+import merge, { mergeWithCustomize, customizeArray } from "webpack-merge";
 import * as esModuleLexer from "es-module-lexer";
 
 import GlobEntryPlugin from "../src/rspack.js";
 
 import test from "./utils/testWithTmp.js";
 import { writeFiles } from "./utils/files.js";
+
+const replaceArrayMerge = mergeWithCustomize({
+	customizeArray: customizeArray({ "*": "replace" }),
+});
 
 // Rspack doesn't export these types
 type Compiler = any;
@@ -55,11 +59,24 @@ const config = {
 	},
 };
 
-async function setup(rootDir: string, files: Record<string, string> = {}) {
-	const extendedConfig = merge(config, {
+async function setup(
+	rootDir: string,
+	options: {
+		files?: Record<string, string>;
+		config?: typeof config;
+	} = {},
+) {
+	const {
+		files = {
+			"src/a.entry.js": "console.log('a'); export default 'a';",
+			"src/b/b.entry.js": "console.log('b'); export default 'b';",
+		},
+		config: baseConfig = config,
+	} = options;
+	const extendedConfig = merge(baseConfig, {
 		context: path.join(rootDir, "src"),
 		output: { path: path.join(rootDir, "dist") },
-	} as any);
+	});
 
 	const compiler = rspack(extendedConfig);
 
@@ -67,13 +84,7 @@ async function setup(rootDir: string, files: Record<string, string> = {}) {
 		return promisify(compiler.close.bind(compiler))();
 	});
 
-	await writeFiles(
-		rootDir,
-		files ?? {
-			"src/a.entry.js": "console.log('a'); export default 'a';",
-			"src/b.entry.js": "console.log('b'); export default 'b';",
-		},
-	);
+	await writeFiles(rootDir, files);
 
 	return compiler;
 }
@@ -111,7 +122,7 @@ describe("run", () => {
 		const { entrypoints } = stats.toJson({ all: false, entrypoints: true });
 		expect(Object.keys(entrypoints!).sort()).toEqual([
 			"a.entry.js",
-			"b.entry.js",
+			"b/b.entry.js",
 		]);
 	});
 
@@ -125,7 +136,7 @@ describe("run", () => {
 			assets: true,
 		});
 		expect(assets?.map((asset: { name: string }) => asset.name).sort()).toEqual(
-			["a.entry.js.mjs", "b.entry.js.mjs", "importmap.json"],
+			["a.entry.js.mjs", "b/b.entry.js.mjs", "importmap.json"],
 		);
 	});
 
@@ -141,7 +152,7 @@ describe("run", () => {
 		expect(importmap).toStrictEqual({
 			imports: {
 				"a.entry.js": "/a.entry.js.mjs",
-				"b.entry.js": "/b.entry.js.mjs",
+				"b/b.entry.js": "/b/b.entry.js.mjs",
 			},
 		});
 	});
@@ -176,11 +187,89 @@ describe("run", () => {
 		expect
 			.soft(distA)
 			.toMatchInlineSnapshot(
-				`"var e={d:(o,r)=>{for(var a in r)e.o(r,a)&&!e.o(o,a)&&Object.defineProperty(o,a,{enumerable:!0,get:r[a]})},o:(e,o)=>Object.prototype.hasOwnProperty.call(e,o)},o={};e.d(o,{A:()=>r}),console.log("a");const r="a";var a=o.A;export{a as default};"`,
+				`"var r={},e={};function t(o){var n=e[o];if(void 0!==n)return n.exports;var a=e[o]={exports:{}};return r[o](a,a.exports,t),a.exports}t.d=function(r,e){for(var o in e)t.o(e,o)&&!t.o(r,o)&&Object.defineProperty(r,o,{enumerable:!0,get:e[o]})},t.o=function(r,e){return Object.prototype.hasOwnProperty.call(r,e)},t.rv=function(){return"1.0.14"},t.ruid="bundler=rspack@1.0.14";var o={};t.d(o,{Z:function(){return n}}),console.log("a");let n="a";var a=o.Z;export{a as default};"`,
 			);
 		expect(hasModuleSyntax).toBe(true);
 		expect(exports[0]).toHaveProperty("n", "default"); // n=name
 		expect(distA).toMatch(/console\.log\(['"]a['"]\)/);
+	});
+
+	test("works without manually setting experiments", async ({ tmp }) => {
+		const compiler = await setup(tmp, {
+			config: merge(config, {
+				output: { module: false },
+				experiments: { outputModule: false },
+			}),
+		});
+		const stats = await run(compiler);
+		checkStats(stats);
+
+		const { entrypoints } = stats.toJson({ all: false, entrypoints: true });
+		expect(Object.keys(entrypoints!).sort()).toEqual([
+			"a.entry.js",
+			"b/b.entry.js",
+		]);
+
+		const { assets } = stats.toJson({
+			all: false,
+			assets: true,
+		});
+		expect(assets?.map((asset) => asset.name).sort()).toEqual([
+			"a.entry.js.mjs",
+			"b/b.entry.js.mjs",
+			"importmap.json",
+		]);
+	});
+
+	describe("options", () => {
+		test("importMapFileName", async ({ tmp }) => {
+			const compiler = await setup(tmp, {
+				config: replaceArrayMerge(config, {
+					plugins: [
+						GlobEntryPlugin({
+							patterns: "*.entry.js",
+							importMapFileName: "my-import-map.json",
+						}),
+					],
+				}),
+			});
+			const stats = await run(compiler);
+			checkStats(stats);
+
+			const { assets } = stats.toJson({
+				all: false,
+				assets: true,
+			});
+			expect(
+				assets?.map((asset: { name: string }) => asset.name).sort(),
+			).toContain("my-import-map.json");
+		});
+
+		test("importMapPrefix", async ({ tmp }) => {
+			const compiler = await setup(tmp, {
+				config: replaceArrayMerge(config, {
+					plugins: [
+						GlobEntryPlugin({
+							patterns: "*.entry.js",
+							importMapPrefix: "~",
+						}),
+					],
+				}),
+			});
+			const stats = await run(compiler);
+			checkStats(stats);
+
+			const importmap = JSON.parse(
+				await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
+			);
+
+			expect(importmap).toStrictEqual({
+				imports: {
+					"~/a.entry.js": "/a.entry.js.mjs",
+					"~/b/b.entry.js": "/b/b.entry.js.mjs",
+				},
+			});
+		});
 	});
 });
 
@@ -249,15 +338,13 @@ describe("watch", () => {
 		});
 		expect(Object.keys(entrypoints!).toSorted()).toEqual([
 			"a.entry.js",
-			"b.entry.js",
+			"b/b.entry.js",
 		]);
 
 		// add new entrypoint
-		await fs.writeFile(
-			`${tmp}/src/c.entry.js`,
-			"console.log('c'); export default 'c';",
-			"utf-8",
-		);
+		await writeFiles(tmp, {
+			"src/c/c/c.entry.js": "console.log('c'); export default 'c';",
+		});
 
 		// second build
 		iteratorResult = await generator.next();
@@ -271,8 +358,8 @@ describe("watch", () => {
 		}));
 		expect(Object.keys(entrypoints!).toSorted()).toEqual([
 			"a.entry.js",
-			"b.entry.js",
-			"c.entry.js",
+			"b/b.entry.js",
+			"c/c/c.entry.js",
 		]);
 	});
 
@@ -304,16 +391,14 @@ describe("watch", () => {
 		expect(importmap).toStrictEqual({
 			imports: {
 				"a.entry.js": "/a.entry.js.mjs",
-				"b.entry.js": "/b.entry.js.mjs",
+				"b/b.entry.js": "/b/b.entry.js.mjs",
 			},
 		});
 
 		// add new entrypoint
-		await fs.writeFile(
-			`${tmp}/src/c.entry.js`,
-			"console.log('c'); export default 'c';",
-			"utf-8",
-		);
+		await writeFiles(tmp, {
+			"src/c/c/c.entry.js": "console.log('c'); export default 'c';",
+		});
 
 		// second build
 		iteratorResult = await generator.next();
@@ -328,8 +413,8 @@ describe("watch", () => {
 		expect(importmap).toStrictEqual({
 			imports: {
 				"a.entry.js": "/a.entry.js.mjs",
-				"b.entry.js": "/b.entry.js.mjs",
-				"c.entry.js": "/c.entry.js.mjs",
+				"b/b.entry.js": "/b/b.entry.js.mjs",
+				"c/c/c.entry.js": "/c/c/c.entry.js.mjs",
 			},
 		});
 	});
