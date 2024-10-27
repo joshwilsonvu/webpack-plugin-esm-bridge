@@ -6,4 +6,5 @@ export interface Options {
 	importMapFileName?: string | null;
   importMapPrefix?: string;
 	globbyOptions?: GlobbyOptions | null;
+	noHtmlWebpackPlugin?: boolean;
 }

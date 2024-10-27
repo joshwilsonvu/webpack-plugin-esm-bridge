@@ -88,6 +88,7 @@
 		"@farmfe/core": ">=1",
 		"@nuxt/kit": "^3",
 		"@nuxt/schema": "^3",
+		"html-webpack-plugin": "^5",
 		"rollup": "^3",
 		"vite": ">=3",
 		"webpack": "^4 || ^5"
@@ -110,6 +111,9 @@
 		},
 		"webpack": {
 			"optional": true
+		},
+		"html-webpack-plugin": {
+			"optional": true
 		}
 	},
 	"dependencies": {
@@ -127,6 +131,7 @@
 		"es-module-lexer": "^1.5.4",
 		"esno": "^4.8.0",
 		"fast-glob": "^3.3.2",
+		"html-webpack-plugin": "^5",
 		"memfs": "^4.14.0",
 		"nodemon": "^3.1.7",
 		"prettier": "^3.3.3",

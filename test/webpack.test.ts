@@ -132,16 +132,39 @@ describe("run", () => {
 		const stats = await run(compiler);
 		checkStats(stats);
 
-		const importmap = JSON.parse(
-			await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
-		);
+		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
 
-		expect(importmap).toStrictEqual({
-			imports: {
-				"a.entry.js": "/a.entry.js.mjs",
-				"b/b.entry.js": "/b/b.entry.js.mjs",
-			},
+		expect(importmap).toBe(
+			JSON.stringify({
+				imports: {
+					"a.entry.js": "/a.entry.js.mjs",
+					"b/b.entry.js": "/b/b.entry.js.mjs",
+				},
+			}),
+		);
+	});
+
+	test("emits unminified import map in development", async ({ tmp }) => {
+		const compiler = await setup(tmp, {
+			config: merge(config, { mode: "development" }),
 		});
+		const stats = await run(compiler);
+		checkStats(stats);
+
+		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
+
+		expect(importmap).toBe(
+			JSON.stringify(
+				{
+					imports: {
+						"a.entry.js": "/a.entry.js.mjs",
+						"b/b.entry.js": "/b/b.entry.js.mjs",
+					},
+				},
+				null,
+				2,
+			),
+		);
 	});
 
 	test("emitted files preserve exports", async ({ tmp }) => {
@@ -206,6 +229,47 @@ describe("run", () => {
 			"b/b.entry.js.mjs",
 			"importmap.json",
 		]);
+	});
+
+	describe("HtmlWebpackPlugin", () => {
+		test("injects import map into HtmlWebpackPlugin template", async ({
+			tmp,
+		}) => {
+			const HtmlWebpackPlugin = (await import("html-webpack-plugin")).default;
+			const compiler = await setup(tmp, {
+				config: merge(config, {
+					plugins: [new HtmlWebpackPlugin()],
+				}),
+			});
+			const stats = await run(compiler);
+			checkStats(stats);
+
+			const html = await fs.readFile(`${tmp}/dist/index.html`, "utf-8");
+			expect(html).toContain('<script type="importmap">');
+		});
+
+		test("doesn't inject import map into HtmlWebpackPlugin template if options.noHtmlWebpackPlugin", async ({
+			tmp,
+		}) => {
+			const HtmlWebpackPlugin = (await import("html-webpack-plugin")).default;
+			const compiler = await setup(tmp, {
+				config: replaceArrayMerge(config, {
+					mode: "development",
+					plugins: [
+						GlobEntryPlugin({
+							patterns: "*.entry.js",
+							noHtmlWebpackPlugin: true,
+						}),
+						new HtmlWebpackPlugin(),
+					],
+				}),
+			});
+			const stats = await run(compiler);
+			checkStats(stats);
+
+			const html = await fs.readFile(`${tmp}/dist/index.html`, "utf-8");
+			expect(html).not.toContain('<script type="importmap">');
+		});
 	});
 
 	describe("options", () => {

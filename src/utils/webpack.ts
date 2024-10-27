@@ -128,8 +128,31 @@ export default function WebpackPluginGlobEntry(options: Options) {
 				getDynamicEntries(await getFreshPaths(compiler)),
 			).apply(compiler as any);
 
+			let HtmlWebpackPlugin: typeof import("html-webpack-plugin");
+			compiler.hooks.beforeCompile.tapPromise("glob-entry", async () => {
+				if (!options.noHtmlWebpackPlugin) {
+					try {
+						HtmlWebpackPlugin = (await import("html-webpack-plugin")).default;
+					} catch {}
+				}
+			});
+
 			// Emit an import map file to be included in the HTML
 			compiler.hooks.compilation.tap("glob-entry", (compilation) => {
+				const minify =
+					compiler.options.optimization?.minimize ??
+					compiler.options.mode === "production";
+
+				// hard to say when the import map will be generated, cache here per compilation
+				let importmap:
+					| Awaited<ReturnType<typeof generateImportMap>>
+					| null
+					| undefined;
+				const formatImportmap = () =>
+					minify
+						? JSON.stringify(importmap)
+						: JSON.stringify(importmap, null, 2);
+
 				compilation.hooks.processAssets.tapPromise(
 					{
 						name: "StatsPlugin",
@@ -138,19 +161,53 @@ export default function WebpackPluginGlobEntry(options: Options) {
 						stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
 					},
 					async (assets) => {
-						const importmap = await generateImportMap(compilation);
+						if (importmap === undefined) {
+							importmap = await generateImportMap(compilation);
+						}
 						if (importmap != null) {
 							assets[importMapFileName] =
 								new compiler.webpack.sources.OriginalSource(
-									JSON.stringify(importmap),
+									formatImportmap(),
 									importMapFileName,
 								);
 						}
 					},
 				);
-			});
 
-			// TODO: integrate with html-webpack-plugin, write import map to HTML
+				// Integrate with html-webpack-plugin if it's being used, unless configured not to
+				if (HtmlWebpackPlugin) {
+					const hooks = HtmlWebpackPlugin.getCompilationHooks(compilation);
+					hooks.beforeAssetTagGeneration.tap("glob-entry", (data) => {
+						if (
+							data.plugin.options &&
+							data.plugin.options.scriptLoading !== "module"
+						) {
+							// force HtmlWebpackPlugin to use `<script type="module">` since we've already made Webpack emit modules
+							logger?.warn(
+								"Setting HtmlWebpackPlugin scriptLoading = true for native import support.",
+							);
+							data.plugin.options.scriptLoading = "module";
+						}
+						return data;
+					});
+					hooks.alterAssetTags.tapPromise("glob-entry", async (data) => {
+						if (importmap === undefined) {
+							importmap = await generateImportMap(compilation);
+						}
+						if (importmap != null) {
+							// Manipulate the content
+							data.assetTags.scripts.unshift({
+								tagName: "script",
+								attributes: { type: "importmap" },
+								meta: { plugin: "glob-entry" },
+								innerHTML: formatImportmap(),
+								voidTag: false,
+							});
+						}
+						return data;
+					});
+				}
+			});
 		},
 	};
 }
