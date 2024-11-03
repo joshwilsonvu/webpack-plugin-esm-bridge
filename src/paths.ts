@@ -14,10 +14,10 @@ export function formatPath(file: string): string {
 }
 
 export function formatAsset(assetPath: string, publicPath: string): string {
-	const sep = publicPath.endsWith("/") ? "" : "/";
 	if (URL.canParse(publicPath)) {
 		return new URL(forward(assetPath), publicPath).href;
 	}
+	const sep = publicPath.endsWith("/") ? "" : "/";
 	return `${publicPath}${sep}${forward(assetPath)}`;
 }
 

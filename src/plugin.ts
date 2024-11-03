@@ -1,6 +1,6 @@
 import type * as Webpack from "webpack";
 import type * as Rspack from "@rspack/core";
-import type { Options } from "../types.js";
+import type { ImportMap, Options } from "./types.js";
 import { formatAsset, formatPath, loadPaths } from "./paths.js";
 
 const PLUGIN_NAME = "glob-entry";
@@ -10,20 +10,26 @@ type WebpackEntries = Record<
 	Omit<Rspack.EntryDescriptionNormalized, "filename" | "publicPath">
 >;
 
-export default function WebpackPluginGlobEntry(options: Options) {
+// This strange use of generics allows the Webpack entrypoint to only need Webpack types, and same
+// for Rspack. See dist/webpack.d.ts for proof.
+export default function WebpackPluginGlobEntry<
+	Pack extends typeof Webpack | typeof Rspack,
+>(options: Options) {
+	type Compiler = InstanceType<Pack["Compiler"]>;
+	type Compilation = InstanceType<Pack["Compilation"]>;
+
 	const patterns = options.patterns
 		? typeof options.patterns === "string"
 			? [options.patterns]
 			: options.patterns
 		: [];
-
-	const importMapFileName = options.importMapFileName ?? "importmap.json";
-	const importMapPrefix = (options.importMapPrefix ?? "").replace(/\/$/, "");
+	options.importMap ??= {};
+	options.importMap.fileName ??= "importmap.json";
+	options.importMap.prefix ??= "";
+	options.importMap.prefix = options.importMap.prefix.replace(/\/$/, "");
 
 	let _paths: Array<string> | null = null; // cache
-	async function getFreshPaths(
-		compiler: Webpack.Compiler | Rspack.Compiler,
-	): Promise<Array<string>> {
+	async function getFreshPaths(compiler: Compiler): Promise<Array<string>> {
 		_paths = await loadPaths(patterns, {
 			baseNameMatch: true,
 			cwd: compiler.context,
@@ -31,7 +37,7 @@ export default function WebpackPluginGlobEntry(options: Options) {
 		});
 		return _paths;
 	}
-	async function getPaths(compiler: Webpack.Compiler | Rspack.Compiler) {
+	async function getPaths(compiler: Compiler) {
 		if (_paths == null) {
 			if (patterns.length === 0) {
 				_paths = [];
@@ -50,15 +56,18 @@ export default function WebpackPluginGlobEntry(options: Options) {
 				library: {
 					type: "module",
 				},
-				// chunkLoading: "import-scripts",
 			};
 			return acc;
 		}, {} as WebpackEntries);
 	}
 
 	async function generateImportMap(
-		compilation: Webpack.Compilation | Rspack.Compilation,
-	): Promise<{ imports: Record<string, string> } | null> {
+		compilation: Compilation,
+	): Promise<ImportMap | null> {
+		if (options.importMap?.disabled) {
+			return null;
+		}
+
 		const stats = compilation.getStats().toJson({
 			all: false,
 			entrypoints: true,
@@ -72,39 +81,58 @@ export default function WebpackPluginGlobEntry(options: Options) {
 		}
 
 		if (stats.entrypoints != null) {
-			const pathsSet = new Set(await getPaths(compilation.compiler));
-			const imports = Object.entries(stats.entrypoints)
-				.filter(([entrypoint]) => pathsSet.has(entrypoint))
-				.reduce(
-					(imports, [entrypoint, desc]) => {
-						if (importMapPrefix) {
-							entrypoint = `${importMapPrefix}/${entrypoint}`;
-						}
-						const outputFile = desc.assets?.filter(
-							(asset) =>
-								!/\.(?:map|gz|br)$/.test(asset.name) && !("info" in asset),
-						);
-						if (outputFile && outputFile.length > 1) {
-							throw new Error(`Multiple assets found for entry ${entrypoint}`);
-						}
-						if (outputFile && outputFile.length === 1) {
-							imports[entrypoint] = formatAsset(
-								outputFile[0].name,
-								stats.publicPath ?? "/",
-							);
-						}
-						return imports;
-					},
-					{} as Record<string, string>,
-				);
+			const pathsSet = new Set(
+				await getPaths(compilation.compiler as Compiler),
+			);
+			const importmap: ImportMap = { imports: {} };
+			for (let [entrypoint, desc] of Object.entries(stats.entrypoints).filter(
+				([entrypoint]) => pathsSet.has(entrypoint),
+			)) {
+				if (options.importMap?.prefix) {
+					entrypoint = `${options.importMap.prefix}/${entrypoint}`;
+				}
 
-			return { imports };
+				const outputFiles = desc.assets?.filter(
+					(asset) => !/\.(?:map|gz|br)$/.test(asset.name) && !("info" in asset),
+				);
+				if (outputFiles) {
+					if (outputFiles.length > 1) {
+						throw new Error(`Multiple assets found for entry ${entrypoint}`);
+					}
+					if (outputFiles.length !== 1) {
+						throw new Error(`No assets found for entry ${entrypoint}`);
+					}
+
+					const [outputFile] = outputFiles;
+					const resolvedAsset = formatAsset(
+						outputFile.name,
+						stats.publicPath ?? "/",
+					);
+					importmap.imports[entrypoint] = resolvedAsset;
+					if (options.importMap?.integrity) {
+						const source = compilation.getAsset(outputFile.name)?.source;
+						if (source) {
+							const hash = (await import("node:crypto")).createHash("sha384");
+							source.updateHash(hash);
+							const digest = hash.digest("base64");
+
+							importmap.integrity ??= {};
+							importmap.integrity[resolvedAsset] = `sha384-${digest}`;
+						}
+					}
+				}
+			}
+
+			// allow user to manipulate content
+			await options.importMap?.onCreate?.(importmap);
+
+			return importmap;
 		}
 		return null;
 	}
 
 	return {
-		apply(compiler: Webpack.Compiler | Rspack.Compiler): void {
+		apply(compiler: Compiler): void {
 			const logger = compiler.getInfrastructureLogger?.(PLUGIN_NAME) ?? null;
 
 			// Don't know where's best to modify options, trying synchronously.
@@ -144,10 +172,7 @@ export default function WebpackPluginGlobEntry(options: Options) {
 					compiler.options.mode === "production";
 
 				// hard to say when the import map will be generated, cache here per compilation
-				let importmap:
-					| Awaited<ReturnType<typeof generateImportMap>>
-					| null
-					| undefined;
+				let importmap: ImportMap | null | undefined;
 				const formatImportmap = () =>
 					minify
 						? JSON.stringify(importmap)
@@ -162,13 +187,13 @@ export default function WebpackPluginGlobEntry(options: Options) {
 					},
 					async (assets) => {
 						if (importmap === undefined) {
-							importmap = await generateImportMap(compilation);
+							importmap = await generateImportMap(compilation as Compilation);
 						}
 						if (importmap != null) {
-							assets[importMapFileName] =
+							assets[options.importMap!.fileName!] =
 								new compiler.webpack.sources.OriginalSource(
 									formatImportmap(),
-									importMapFileName,
+									options.importMap!.fileName!,
 								);
 						}
 					},
@@ -176,7 +201,9 @@ export default function WebpackPluginGlobEntry(options: Options) {
 
 				// Integrate with html-webpack-plugin if it's being used, unless configured not to
 				if (HtmlWebpackPlugin) {
-					const hooks = HtmlWebpackPlugin.getCompilationHooks(compilation);
+					const hooks = HtmlWebpackPlugin.getCompilationHooks(
+						compilation as any,
+					);
 					hooks.beforeAssetTagGeneration.tap("glob-entry", (data) => {
 						if (
 							data.plugin.options &&
@@ -192,7 +219,7 @@ export default function WebpackPluginGlobEntry(options: Options) {
 					});
 					hooks.alterAssetTags.tapPromise("glob-entry", async (data) => {
 						if (importmap === undefined) {
-							importmap = await generateImportMap(compilation);
+							importmap = await generateImportMap(compilation as Compilation);
 						}
 						if (importmap != null) {
 							// Manipulate the content

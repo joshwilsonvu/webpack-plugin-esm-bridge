@@ -12,7 +12,7 @@ import webpack from "webpack";
 import { merge, mergeWithCustomize, customizeArray } from "webpack-merge";
 import * as esModuleLexer from "es-module-lexer";
 
-import GlobEntryPlugin from "../src/webpack.js";
+import GlobEntryPlugin from "../src/index.js";
 
 import test from "./utils/testWithTmp.js";
 import { writeFiles } from "./utils/files.js";
@@ -83,7 +83,7 @@ function checkStats(stats?: webpack.Stats): asserts stats {
 			errorDetails: true,
 			errorStack: true,
 		});
-		expect.soft(errors).toEqual([]);
+		expect.soft(errors).toStrictEqual([]);
 	}
 }
 
@@ -105,7 +105,7 @@ describe("run", () => {
 		checkStats(stats);
 
 		const { entrypoints } = stats.toJson({ all: false, entrypoints: true });
-		expect(Object.keys(entrypoints!).sort()).toEqual([
+		expect(Object.keys(entrypoints!).sort()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 		]);
@@ -120,7 +120,7 @@ describe("run", () => {
 			all: false,
 			assets: true,
 		});
-		expect(assets?.map((asset) => asset.name).sort()).toEqual([
+		expect(assets?.map((asset) => asset.name).sort()).toStrictEqual([
 			"a.entry.js.mjs",
 			"b/b.entry.js.mjs",
 			"importmap.json",
@@ -236,7 +236,7 @@ describe("run", () => {
 		checkStats(stats);
 
 		const { entrypoints } = stats.toJson({ all: false, entrypoints: true });
-		expect(Object.keys(entrypoints!).sort()).toEqual([
+		expect(Object.keys(entrypoints!).sort()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 		]);
@@ -245,7 +245,7 @@ describe("run", () => {
 			all: false,
 			assets: true,
 		});
-		expect(assets?.map((asset) => asset.name).sort()).toEqual([
+		expect(assets?.map((asset) => asset.name).sort()).toStrictEqual([
 			"a.entry.js.mjs",
 			"b/b.entry.js.mjs",
 			"importmap.json",
@@ -294,52 +294,125 @@ describe("run", () => {
 	});
 
 	describe("options", () => {
-		test("importMapFileName", async ({ tmp }) => {
-			const compiler = await setup(tmp, {
-				config: replaceArrayMerge(config, {
-					plugins: [
-						GlobEntryPlugin({
-							patterns: "*.entry.js",
-							importMapFileName: "my-import-map.json",
-						}),
-					],
-				}),
+		describe("importMap", () => {
+			test("fileName", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									fileName: "my-import-map.json",
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
+
+				const { assets } = stats.toJson({
+					all: false,
+					assets: true,
+				});
+				expect(
+					assets?.map((asset: { name: string }) => asset.name).sort(),
+				).toContain("my-import-map.json");
 			});
-			const stats = await run(compiler);
-			checkStats(stats);
 
-			const { assets } = stats.toJson({
-				all: false,
-				assets: true,
+			test("prefix", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									prefix: "~",
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
+
+				const importmap = JSON.parse(
+					await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
+				);
+
+				expect(importmap).toStrictEqual({
+					imports: {
+						"~/a.entry.js": "/a.entry.js.mjs",
+						"~/b/b.entry.js": "/b/b.entry.js.mjs",
+					},
+				});
 			});
-			expect(
-				assets?.map((asset: { name: string }) => asset.name).sort(),
-			).toContain("my-import-map.json");
-		});
 
-		test("importMapPrefix", async ({ tmp }) => {
-			const compiler = await setup(tmp, {
-				config: replaceArrayMerge(config, {
-					plugins: [
-						GlobEntryPlugin({
-							patterns: "*.entry.js",
-							importMapPrefix: "~",
-						}),
-					],
-				}),
+			test("integrity", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									integrity: true,
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
+
+				const importmap = JSON.parse(
+					await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
+				);
+
+				expect(importmap).toStrictEqual({
+					imports: {
+						"a.entry.js": "/a.entry.js.mjs",
+						"b/b.entry.js": "/b/b.entry.js.mjs",
+					},
+					integrity: {
+						"/a.entry.js.mjs": expect.stringMatching(/^sha384-.{60,}$/),
+						"/b/b.entry.js.mjs": expect.stringMatching(/^sha384-.{60,}$/),
+					},
+				});
 			});
-			const stats = await run(compiler);
-			checkStats(stats);
 
-			const importmap = JSON.parse(
-				await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
-			);
+			test("onCreate", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									async onCreate(importMap) {
+										await Promise.resolve();
+										importMap.imports["something-extra"] = "/something-nice";
+									},
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
 
-			expect(importmap).toStrictEqual({
-				imports: {
-					"~/a.entry.js": "/a.entry.js.mjs",
-					"~/b/b.entry.js": "/b/b.entry.js.mjs",
-				},
+				const importmap = await fs.readFile(
+					`${tmp}/dist/importmap.json`,
+					"utf-8",
+				);
+
+				expect(importmap).toBe(
+					JSON.stringify({
+						imports: {
+							"a.entry.js": "/a.entry.js.mjs",
+							"b/b.entry.js": "/b/b.entry.js.mjs",
+							"something-extra": "/something-nice",
+						},
+					}),
+				);
 			});
 		});
 	});
@@ -406,7 +479,7 @@ describe("watch", () => {
 			all: false,
 			entrypoints: true,
 		});
-		expect(Object.keys(entrypoints!).toSorted()).toEqual([
+		expect(Object.keys(entrypoints!).toSorted()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 		]);
@@ -426,7 +499,7 @@ describe("watch", () => {
 			all: false,
 			entrypoints: true,
 		}));
-		expect(Object.keys(entrypoints!).toSorted()).toEqual([
+		expect(Object.keys(entrypoints!).toSorted()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 			"c/c/c.entry.js",

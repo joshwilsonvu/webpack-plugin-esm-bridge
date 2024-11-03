@@ -8,8 +8,9 @@
 		"resolveJsonModule": true,
 		"strict": true,
 		"strictNullChecks": true,
+		"skipLibCheck": true,
 		"esModuleInterop": true,
 		"noEmit": true
 	},
-	"exclude": ["dist"]
+	"exclude": ["dist", "src/unused/rollup.ts"]
 }

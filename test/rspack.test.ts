@@ -14,6 +14,7 @@ import { Writable } from "node:stream";
 import { describe, expect, onTestFinished } from "vitest";
 
 import { rspack } from "@rspack/core";
+import type * as Rspack from "@rspack/core";
 import { merge, mergeWithCustomize, customizeArray } from "webpack-merge";
 import * as esModuleLexer from "es-module-lexer";
 
@@ -26,19 +27,9 @@ const replaceArrayMerge = mergeWithCustomize({
 	customizeArray: customizeArray({ "*": "replace" }),
 });
 
-// Rspack doesn't export these types
-type Compiler = any;
-type Stats = {
-	hasErrors(): boolean;
-	toJson(options: Record<string, boolean>): Record<string, any>;
-};
-type WatchFn = (cb: (err: Error | null, result?: Stats) => void) => {
-	close: (cb: (err: Error | null) => void) => void;
-};
-
 const mockConsole = new Console(new Writable());
 
-const config = {
+const config: Rspack.Configuration = {
 	// context added in each test
 	entry: {},
 	output: {
@@ -89,7 +80,7 @@ async function setup(
 	return compiler;
 }
 
-function checkStats(stats?: Stats): asserts stats {
+function checkStats(stats?: Rspack.Stats): asserts stats {
 	expect(stats).toBeDefined();
 	if (stats?.hasErrors()) {
 		const { errors } = stats.toJson({
@@ -103,7 +94,7 @@ function checkStats(stats?: Stats): asserts stats {
 }
 
 describe("run", () => {
-	function run(compiler: Compiler) {
+	function run(compiler: Rspack.Compiler) {
 		const runPromise = promisify(compiler.run.bind(compiler));
 		return runPromise();
 	}
@@ -307,52 +298,125 @@ describe("run", () => {
 	});
 
 	describe("options", () => {
-		test("importMapFileName", async ({ tmp }) => {
-			const compiler = await setup(tmp, {
-				config: replaceArrayMerge(config, {
-					plugins: [
-						GlobEntryPlugin({
-							patterns: "*.entry.js",
-							importMapFileName: "my-import-map.json",
-						}),
-					],
-				}),
+		describe("importMap", () => {
+			test("fileName", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									fileName: "my-import-map.json",
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
+
+				const { assets } = stats.toJson({
+					all: false,
+					assets: true,
+				});
+				expect(
+					assets?.map((asset: { name: string }) => asset.name).sort(),
+				).toContain("my-import-map.json");
 			});
-			const stats = await run(compiler);
-			checkStats(stats);
 
-			const { assets } = stats.toJson({
-				all: false,
-				assets: true,
+			test("prefix", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									prefix: "~",
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
+
+				const importmap = JSON.parse(
+					await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
+				);
+
+				expect(importmap).toStrictEqual({
+					imports: {
+						"~/a.entry.js": "/a.entry.js.mjs",
+						"~/b/b.entry.js": "/b/b.entry.js.mjs",
+					},
+				});
 			});
-			expect(
-				assets?.map((asset: { name: string }) => asset.name).sort(),
-			).toContain("my-import-map.json");
-		});
 
-		test("importMapPrefix", async ({ tmp }) => {
-			const compiler = await setup(tmp, {
-				config: replaceArrayMerge(config, {
-					plugins: [
-						GlobEntryPlugin({
-							patterns: "*.entry.js",
-							importMapPrefix: "~",
-						}),
-					],
-				}),
+			test("integrity", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									integrity: true,
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
+
+				const importmap = JSON.parse(
+					await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
+				);
+
+				expect(importmap).toStrictEqual({
+					imports: {
+						"a.entry.js": "/a.entry.js.mjs",
+						"b/b.entry.js": "/b/b.entry.js.mjs",
+					},
+					integrity: {
+						"/a.entry.js.mjs": expect.stringMatching(/^sha384-.{60,}$/),
+						"/b/b.entry.js.mjs": expect.stringMatching(/^sha384-.{60,}$/),
+					},
+				});
 			});
-			const stats = await run(compiler);
-			checkStats(stats);
 
-			const importmap = JSON.parse(
-				await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
-			);
+			test("onCreate", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									async onCreate(importMap) {
+										await Promise.resolve();
+										importMap.imports["something-extra"] = "/something-nice";
+									},
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
 
-			expect(importmap).toStrictEqual({
-				imports: {
-					"~/a.entry.js": "/a.entry.js.mjs",
-					"~/b/b.entry.js": "/b/b.entry.js.mjs",
-				},
+				const importmap = await fs.readFile(
+					`${tmp}/dist/importmap.json`,
+					"utf-8",
+				);
+
+				expect(importmap).toBe(
+					JSON.stringify({
+						imports: {
+							"a.entry.js": "/a.entry.js.mjs",
+							"b/b.entry.js": "/b/b.entry.js.mjs",
+							"something-extra": "/something-nice",
+						},
+					}),
+				);
 			});
 		});
 	});
@@ -403,9 +467,7 @@ describe("watch", () => {
 	test("picks up new files", async ({ tmp, onTestFailed, onTestFinished }) => {
 		const compiler = await setup(tmp);
 
-		const [generator, watching] = pushToPull(
-			compiler.watch.bind(compiler, {}) as WatchFn,
-		);
+		const [generator, watching] = pushToPull(compiler.watch.bind(compiler, {}));
 		onTestFinished(() => promisify(watching.close.bind(watching))());
 		onTestFailed(() => {
 			generator.return();
@@ -455,9 +517,7 @@ describe("watch", () => {
 	}) => {
 		const compiler = await setup(tmp);
 
-		const [generator, watching] = pushToPull(
-			compiler.watch.bind(compiler, {}) as WatchFn,
-		);
+		const [generator, watching] = pushToPull(compiler.watch.bind(compiler, {}));
 		onTestFinished(() => promisify(watching.close.bind(watching))());
 		onTestFailed(() => {
 			generator.return();
