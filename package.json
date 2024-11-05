@@ -13,15 +13,7 @@
 	"bugs": {
 		"url": "https://github.com/joshwilsonvu/webpack-plugin-esm-bridge/issues"
 	},
-	"keywords": [
-		"webpack",
-		"rspack",
-		"glob",
-		"entry",
-		"import",
-		"esm",
-		"html"
-	],
+	"keywords": ["webpack", "rspack", "glob", "entry", "import", "esm", "html"],
 	"exports": {
 		".": {
 			"import": "./dist/index.js",
@@ -36,9 +28,7 @@
 	"main": "dist/index.cjs",
 	"module": "dist/index.js",
 	"types": "dist/index.d.ts",
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"scripts": {
 		"build": "tsup",
 		"dev": "tsup --watch src",

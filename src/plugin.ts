@@ -1,7 +1,12 @@
 import type * as Webpack from "webpack";
 import type * as Rspack from "@rspack/core";
 import type { ImportMap, Options } from "./types.js";
-import { formatAsset, formatEntrypoint, formatPath, loadPaths } from "./paths.js";
+import {
+	formatAsset,
+	formatEntrypoint,
+	formatPath,
+	loadPaths,
+} from "./paths.js";
 
 const PLUGIN_NAME = "glob-entry";
 
@@ -87,7 +92,7 @@ export default function WebpackPluginGlobEntry<
 			);
 			const importmap: ImportMap = { imports: {} };
 			let entries = Object.entries(stats.entrypoints);
-			if (options.importMap?.include !== 'all') {
+			if (options.importMap?.include !== "all") {
 				entries = entries.filter(([entrypoint]) => pathsSet.has(entrypoint));
 			}
 			for (let [entrypoint, desc] of entries) {

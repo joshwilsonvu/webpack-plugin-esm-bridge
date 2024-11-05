@@ -1,5 +1,5 @@
 import path from "node:path";
-import { globby, type Options as GlobbyOptions } from "globby";
+import type { Options as GlobbyOptions } from "globby";
 import type { Options } from "./types.js";
 
 function forward(p: string): string {
@@ -14,17 +14,24 @@ export function formatPath(file: string): string {
 	return forward(file);
 }
 
-export function formatEntrypoint(entrypoint: string, options?: Pick<NonNullable<Options['importMap']>, 'prefix' | 'trimExtension'>): string {
+export function formatEntrypoint(
+	entrypoint: string,
+	options?: Pick<NonNullable<Options["importMap"]>, "prefix" | "trimExtension">,
+): string {
 	if (options?.prefix) {
 		entrypoint = `${options.prefix}/${entrypoint}`;
 	}
 	if (options?.trimExtension) {
-		entrypoint = entrypoint.replace(/\.[^/.]+$/, "")
+		entrypoint = entrypoint.replace(/\.[^/.]+$/, "");
 	}
-	return entrypoint
+	return entrypoint;
 }
 
-export function formatAsset(assetPath: string, publicPath: string, trimExtension?: boolean | null): string {
+export function formatAsset(
+	assetPath: string,
+	publicPath: string,
+	trimExtension?: boolean | null,
+): string {
 	let formatted: string;
 	if (URL.canParse(publicPath)) {
 		formatted = new URL(forward(assetPath), publicPath).href;
@@ -35,12 +42,13 @@ export function formatAsset(assetPath: string, publicPath: string, trimExtension
 	return formatted;
 }
 
-export function loadPaths(
+export async function loadPaths(
 	patterns: Array<string>,
 	options?: GlobbyOptions,
 ): Promise<Array<string>> {
 	if (patterns.length === 0) {
-		return Promise.resolve([]);
+		return [];
 	}
+	const { globby } = await import("globby"); // import ESM from maybe CJS
 	return globby(patterns, { onlyFiles: true, unique: true, ...options });
 }
