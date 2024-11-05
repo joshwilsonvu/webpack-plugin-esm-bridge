@@ -1,17 +1,17 @@
 {
-	"name": "unplugin-glob-entry",
+	"name": "webpack-plugin-esm-bridge",
 	"type": "module",
 	"version": "0.1.0",
 	"packageManager": "pnpm@9.12.3",
 	"description": "",
 	"license": "MIT",
-	"homepage": "https://github.com/joshwilsonvu/unplugin-glob-entry#readme",
+	"homepage": "https://github.com/joshwilsonvu/webpack-plugin-esm-bridge#readme",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/joshwilsonvu/unplugin-glob-entry.git"
+		"url": "git+https://github.com/joshwilsonvu/webpack-plugin-esm-bridge.git"
 	},
 	"bugs": {
-		"url": "https://github.com/joshwilsonvu/unplugin-glob-entry/issues"
+		"url": "https://github.com/joshwilsonvu/webpack-plugin-esm-bridge/issues"
 	},
 	"keywords": [
 		"unplugin",
@@ -22,34 +22,18 @@
 	],
 	"exports": {
 		".": {
-			"types": {
-				"import": "./dist/index.d.ts",
-				"require": "./dist/index.d.cts"
-			},
 			"import": "./dist/index.js",
 			"require": "./dist/index.cjs"
 		},
 		"./rspack": {
-			"types": {
-				"import": "./dist/rspack.d.ts",
-				"require": "./dist/rspack.d.cts"
-			},
 			"import": "./dist/rspack.js",
 			"require": "./dist/rspack.cjs"
 		},
 		"./*": "./*"
 	},
-	"main": "dist/webpack.cjs",
-	"module": "dist/webpack.js",
-	"types": "dist/webpack.d.ts",
-	"typesVersions": {
-		"*": {
-			"*": [
-				"./dist/*",
-				"./*"
-			]
-		}
-	},
+	"main": "dist/index.cjs",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
 	"files": [
 		"dist"
 	],

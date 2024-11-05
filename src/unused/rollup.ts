@@ -90,7 +90,7 @@ const rollup = (() => {
         !["es", "esm", "module"].includes(options.format)
       ) {
         this.error(
-          `unplugin-glob-entry requires output.format: 'module'. Either remove output.format or set it to 'module'.`,
+          `webpack-plugin-esm-bridge requires output.format: 'module'. Either remove output.format or set it to 'module'.`,
         );
       }
     },
