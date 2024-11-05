@@ -1,5 +1,7 @@
 # webpack-plugin-esm-bridge
 
+Readable, granular, and performant JS loading for HTML.
+
 [![NPM version](https://img.shields.io/npm/v/webpack-plugin-esm-bridge?color=a1b858&label=)](https://www.npmjs.com/package/webpack-plugin-esm-bridge)
 
 ## What is this?

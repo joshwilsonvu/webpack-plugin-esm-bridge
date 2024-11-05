@@ -39,6 +39,9 @@ const config: webpack.Configuration = {
 		console: mockConsole,
 	},
 	cache: false,
+	watchOptions: {
+		poll: 50,
+	},
 	experiments: {
 		outputModule: true,
 	},
