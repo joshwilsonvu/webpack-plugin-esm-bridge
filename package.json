@@ -1,9 +1,9 @@
 {
-	"name": "webpack-plugin-esm-bridge",
+	"name": "@joshwilsonvu/webpack-plugin-esm-bridge",
 	"type": "module",
 	"version": "0.1.0",
 	"packageManager": "pnpm@9.12.3",
-	"description": "",
+	"description": "Readable, granular, and performant JS loading for HTML.",
 	"license": "MIT",
 	"homepage": "https://github.com/joshwilsonvu/webpack-plugin-esm-bridge#readme",
 	"repository": {
@@ -14,11 +14,13 @@
 		"url": "https://github.com/joshwilsonvu/webpack-plugin-esm-bridge/issues"
 	},
 	"keywords": [
-		"unplugin",
-		"vite",
 		"webpack",
-		"rollup",
-		"transform"
+		"rspack",
+		"glob",
+		"entry",
+		"import",
+		"esm",
+		"html"
 	],
 	"exports": {
 		".": {
@@ -40,12 +42,10 @@
 	"scripts": {
 		"build": "tsup",
 		"dev": "tsup --watch src",
-		"build:fix": "esno scripts/postbuild.ts",
 		"lint": "biome lint --diagnostic-level=warn .",
 		"format": "biome format --write .",
 		"prepublishOnly": "npm run build",
 		"release": "bumpp && npm publish",
-		"start": "esno src/index.ts",
 		"test": "vitest"
 	},
 	"peerDependencies": {
@@ -75,11 +75,7 @@
 		"bumpp": "^9.7.1",
 		"chalk": "^5.3.0",
 		"es-module-lexer": "^1.5.4",
-		"esno": "^4.8.0",
-		"fast-glob": "^3.3.2",
 		"html-webpack-plugin": "^5",
-		"nodemon": "^3.1.7",
-		"prettier": "^3.3.3",
 		"tsup": "^8.3.5",
 		"typescript": "^5.6.3",
 		"vitest": "^2.1.3",

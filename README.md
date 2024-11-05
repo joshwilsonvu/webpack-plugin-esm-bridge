@@ -1,135 +1,68 @@
-# unplugin-glob-entry
+# webpack-plugin-esm-bridge
 
-[![NPM version](https://img.shields.io/npm/v/unplugin-glob-entry?color=a1b858&label=)](https://www.npmjs.com/package/unplugin-glob-entry)
+[![NPM version](https://img.shields.io/npm/v/webpack-plugin-esm-bridge?color=a1b858&label=)](https://www.npmjs.com/package/webpack-plugin-esm-bridge)
 
-Starter template for [unplugin](https://github.com/unjs/unplugin).
+## What is this?
 
-## Template Usage
+This plugin "bridges" plain HTML or compile-to-HTML templates (even non-JS, like Rails) with the
+bundler's module graph, so that your markup can use native ESM imports to load your bundled JS,
+instead of dealing with manifests, helper functions, reverse proxies, etc.
 
-To use this template, clone it down using:
+It adds entry points based on a glob pattern like `*.entry.*`, and generates an [import
+map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap) that maps the
+source file to the generated JS bundle. Creating entry points based on files allows you to break up
+your JS into smaller bundles and only load what's needed for a particular page or partial, while the
+import map keeps your templates clean and maintainable.
 
-```bash
-npx degit unplugin/unplugin-glob-entry my-unplugin
+```ts
+// my-module.entry.ts
+export function doSomething(value: string) { /* ... */ }
 ```
 
-And do a global replacement of `unplugin-glob-entry` with your plugin name.
+```html
+<script type="module">
+  import { doSomething } from "my-module.entry.ts";
 
-Then you can start developing your unplugin 🔥
-
-To test your plugin, run: `pnpm run dev`
-To release a new version, run: `pnpm run release`
+  doSomething({{ templatedValue }});
+</script>
+```
 
 ## Install
 
 ```bash
-npm i unplugin-glob-entry
+npm i webpack-plugin-esm-bridge
 ```
-
-<details>
-<summary>Vite</summary><br>
-
-```ts
-// vite.config.ts
-import Starter from 'unplugin-glob-entry/vite'
-
-export default defineConfig({
-  plugins: [
-    Starter({
-      /* options */
-    }),
-  ],
-})
-```
-
-Example: [`playground/`](./playground/)
-
-<br></details>
-
-<details>
-<summary>Rollup</summary><br>
-
-```ts
-// rollup.config.js
-import Starter from 'unplugin-glob-entry/rollup'
-
-export default {
-  plugins: [
-    Starter({
-      /* options */
-    }),
-  ],
-}
-```
-
-<br></details>
-
-<details>
-<summary>Webpack</summary><br>
 
 ```ts
 // webpack.config.js
+const EsmBridge = require('webpack-plugin-esm-bridge');
+
 module.exports = {
-  /* ... */
+  entry: {},
+  // ...
   plugins: [
-    require('unplugin-glob-entry/webpack')({
-      /* options */
+    EsmBridge({
+      patterns: '*.entry.*',
+      // other options
     }),
   ],
 }
 ```
 
-<br></details>
-
 <details>
-<summary>Nuxt</summary><br>
+<summary>Rspack</summary>
 
 ```ts
-// nuxt.config.js
-export default defineNuxtConfig({
-  modules: [
-    [
-      'unplugin-glob-entry/nuxt',
-      {
-        /* options */
-      },
-    ],
+// webpack.config.js ("type": "module" in package.json)
+import EsmBridge from 'webpack-plugin-esm-bridge/rspack';
+
+export default {
+  /* ... */
+  plugins: [
+    EsmBridge({
+      patterns: '*.entry.*',
+    }),
   ],
-})
-```
-
-> This module works for both Nuxt 2 and [Nuxt Vite](https://github.com/nuxt/vite)
-
-<br></details>
-
-<details>
-<summary>Vue CLI</summary><br>
-
-```ts
-// vue.config.js
-module.exports = {
-  configureWebpack: {
-    plugins: [
-      require('unplugin-glob-entry/webpack')({
-        /* options */
-      }),
-    ],
-  },
 }
 ```
-
-<br></details>
-
-<details>
-<summary>esbuild</summary><br>
-
-```ts
-// esbuild.config.js
-import { build } from 'esbuild'
-import Starter from 'unplugin-glob-entry/esbuild'
-
-build({
-  plugins: [Starter()],
-})
-```
-
-<br></details>
+</details>
