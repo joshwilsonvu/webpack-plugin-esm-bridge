@@ -348,6 +348,34 @@ describe("run", () => {
 				});
 			});
 
+			test("trimExtension", async ({ tmp }) => {
+				const compiler = await setup(tmp, {
+					config: replaceArrayMerge(config, {
+						plugins: [
+							GlobEntryPlugin({
+								patterns: "*.entry.js",
+								importMap: {
+									trimExtension: true,
+								},
+							}),
+						],
+					}),
+				});
+				const stats = await run(compiler);
+				checkStats(stats);
+
+				const importmap = JSON.parse(
+					await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8"),
+				);
+
+				expect(importmap).toStrictEqual({
+					imports: {
+						"a.entry": "/a.entry.js.mjs",
+						"b/b.entry": "/b/b.entry.js.mjs",
+					},
+				});
+			});
+
 			test("integrity", async ({ tmp }) => {
 				const compiler = await setup(tmp, {
 					config: replaceArrayMerge(config, {

@@ -21,6 +21,7 @@
 		"rules": {
 			"recommended": true,
 			"style": {
+				"noParameterAssign": "info",
 				"noNonNullAssertion": "info"
 			},
 			"suspicious": {

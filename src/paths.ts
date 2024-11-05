@@ -1,5 +1,6 @@
 import path from "node:path";
 import { globby, type Options as GlobbyOptions } from "globby";
+import type { Options } from "./types.js";
 
 function forward(p: string): string {
 	const isWin = path.sep === "\\";
@@ -13,12 +14,25 @@ export function formatPath(file: string): string {
 	return forward(file);
 }
 
-export function formatAsset(assetPath: string, publicPath: string): string {
-	if (URL.canParse(publicPath)) {
-		return new URL(forward(assetPath), publicPath).href;
+export function formatEntrypoint(entrypoint: string, options?: Pick<NonNullable<Options['importMap']>, 'prefix' | 'trimExtension'>): string {
+	if (options?.prefix) {
+		entrypoint = `${options.prefix}/${entrypoint}`;
 	}
-	const sep = publicPath.endsWith("/") ? "" : "/";
-	return `${publicPath}${sep}${forward(assetPath)}`;
+	if (options?.trimExtension) {
+		entrypoint = entrypoint.replace(/\.[^/.]+$/, "")
+	}
+	return entrypoint
+}
+
+export function formatAsset(assetPath: string, publicPath: string, trimExtension?: boolean | null): string {
+	let formatted: string;
+	if (URL.canParse(publicPath)) {
+		formatted = new URL(forward(assetPath), publicPath).href;
+	} else {
+		const sep = publicPath.endsWith("/") ? "" : "/";
+		formatted = `${publicPath}${sep}${forward(assetPath)}`;
+	}
+	return formatted;
 }
 
 export function loadPaths(

@@ -10,12 +10,13 @@ export interface Options {
 	patterns?: string | Array<string>;
 
 	importMap?: {
-		disabled?: boolean,
 		include?: 'globbed' | 'all' | null,
 		fileName?: string | null,
 		prefix?: string | null,
+		trimExtension?: boolean | null,
 		integrity?: boolean,
 		onCreate?: ((importMap: ImportMap) => void | Promise<void>) | null;
+		disabled?: boolean,
 	},
 	
 	globbyOptions?: GlobbyOptions | null;

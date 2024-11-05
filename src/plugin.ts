@@ -1,7 +1,7 @@
 import type * as Webpack from "webpack";
 import type * as Rspack from "@rspack/core";
 import type { ImportMap, Options } from "./types.js";
-import { formatAsset, formatPath, loadPaths } from "./paths.js";
+import { formatAsset, formatEntrypoint, formatPath, loadPaths } from "./paths.js";
 
 const PLUGIN_NAME = "glob-entry";
 
@@ -34,6 +34,7 @@ export default function WebpackPluginGlobEntry<
 			baseNameMatch: true,
 			cwd: compiler.context,
 			fs: (compiler.inputFileSystem ?? (await import("node:fs"))) as any,
+			...options.globbyOptions,
 		});
 		return _paths;
 	}
@@ -85,12 +86,12 @@ export default function WebpackPluginGlobEntry<
 				await getPaths(compilation.compiler as Compiler),
 			);
 			const importmap: ImportMap = { imports: {} };
-			for (let [entrypoint, desc] of Object.entries(stats.entrypoints).filter(
-				([entrypoint]) => pathsSet.has(entrypoint),
-			)) {
-				if (options.importMap?.prefix) {
-					entrypoint = `${options.importMap.prefix}/${entrypoint}`;
-				}
+			let entries = Object.entries(stats.entrypoints);
+			if (options.importMap?.include !== 'all') {
+				entries = entries.filter(([entrypoint]) => pathsSet.has(entrypoint));
+			}
+			for (let [entrypoint, desc] of entries) {
+				entrypoint = formatEntrypoint(entrypoint, options.importMap);
 
 				const outputFiles = desc.assets?.filter(
 					(asset) => !/\.(?:map|gz|br)$/.test(asset.name) && !("info" in asset),
