@@ -90,6 +90,20 @@ function checkStats(stats?: webpack.Stats): asserts stats {
 	}
 }
 
+async function checkImportMap(
+	tmp: string,
+	toBe = JSON.stringify({
+		imports: {
+			"a.entry.js": "/a.entry.js.mjs",
+			"b/b.entry.js": "/b/b.entry.js.mjs",
+		},
+	}),
+): Promise<void> {
+	const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
+
+	expect(importmap).toBe(toBe);
+}
+
 describe("run", () => {
 	function run(compiler: webpack.Compiler) {
 		const runPromise = promisify(compiler.run.bind(compiler));
@@ -135,16 +149,7 @@ describe("run", () => {
 		const stats = await run(compiler);
 		checkStats(stats);
 
-		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
-
-		expect(importmap).toBe(
-			JSON.stringify({
-				imports: {
-					"a.entry.js": "/a.entry.js.mjs",
-					"b/b.entry.js": "/b/b.entry.js.mjs",
-				},
-			}),
-		);
+		await checkImportMap(tmp);
 	});
 
 	test("emits unminified import map in development", async ({ tmp }) => {
@@ -154,9 +159,8 @@ describe("run", () => {
 		const stats = await run(compiler);
 		checkStats(stats);
 
-		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
-
-		expect(importmap).toBe(
+		await checkImportMap(
+			tmp,
 			JSON.stringify(
 				{
 					imports: {
@@ -179,9 +183,8 @@ describe("run", () => {
 		const stats = await run(compiler);
 		checkStats(stats);
 
-		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
-
-		expect(importmap).toBe(
+		await checkImportMap(
+			tmp,
 			JSON.stringify({
 				imports: {
 					"a.entry.js": "/public/a.entry.js.mjs",
@@ -221,7 +224,7 @@ describe("run", () => {
 		expect
 			.soft(distA)
 			.toMatchInlineSnapshot(
-				`"var e={d:(o,r)=>{for(var a in r)e.o(r,a)&&!e.o(o,a)&&Object.defineProperty(o,a,{enumerable:!0,get:r[a]})},o:(e,o)=>Object.prototype.hasOwnProperty.call(e,o)},o={};e.d(o,{A:()=>r}),console.log("a");const r="a";var a=o.A;export{a as default};"`,
+				`"var e={d:(o,r)=>{for(var t in r)e.o(r,t)&&!e.o(o,t)&&Object.defineProperty(o,t,{enumerable:!0,get:r[t]})},o:(e,o)=>Object.prototype.hasOwnProperty.call(e,o)},o={};e.d(o,{A:()=>r}),console.log("a");const r="a",t=o.A;export{t as default};"`,
 			);
 		expect(hasModuleSyntax).toBe(true);
 		expect(exports[0]).toHaveProperty("n", "default"); // n=name
@@ -253,6 +256,36 @@ describe("run", () => {
 			"b/b.entry.js.mjs",
 			"importmap.json",
 		]);
+	});
+
+	test("works with single runtime chunk", async ({ tmp }) => {
+		const compiler = await setup(tmp, {
+			config: merge(config, {
+				optimization: {
+					runtimeChunk: "single",
+				},
+			}),
+		});
+
+		const stats = await run(compiler);
+		checkStats(stats);
+
+		await checkImportMap(tmp);
+	});
+
+	test("works with multiple runtime chunks", async ({ tmp }) => {
+		const compiler = await setup(tmp, {
+			config: merge(config, {
+				optimization: {
+					runtimeChunk: "multiple",
+				},
+			}),
+		});
+
+		const stats = await run(compiler);
+		checkStats(stats);
+
+		await checkImportMap(tmp);
 	});
 
 	describe("HtmlWebpackPlugin", () => {

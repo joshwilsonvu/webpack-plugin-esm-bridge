@@ -1,5 +1,7 @@
 import type { Options as GlobbyOptions } from "globby";
 
+export type SupportedGlobbyOptions = Omit<GlobbyOptions, "cwd">;
+
 export interface ImportMap {
 	imports: Record<string, string>;
 	scopes?: Record<string, Record<string, string>>;
@@ -19,6 +21,6 @@ export interface Options {
 		disabled?: boolean;
 	};
 
-	globbyOptions?: GlobbyOptions | null;
+	globbyOptions?: SupportedGlobbyOptions | null;
 	noHtmlWebpackPlugin?: boolean;
 }

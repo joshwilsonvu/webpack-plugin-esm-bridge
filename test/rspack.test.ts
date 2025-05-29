@@ -96,6 +96,20 @@ function checkStats(stats?: Rspack.Stats): asserts stats {
 	}
 }
 
+async function checkImportMap(
+	tmp: string,
+	toBe = JSON.stringify({
+		imports: {
+			"a.entry.js": "/a.entry.js.mjs",
+			"b/b.entry.js": "/b/b.entry.js.mjs",
+		},
+	}),
+): Promise<void> {
+	const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
+
+	expect(importmap).toBe(toBe);
+}
+
 describe("run", () => {
 	function run(compiler: Rspack.Compiler) {
 		const runPromise = promisify(compiler.run.bind(compiler));
@@ -114,7 +128,7 @@ describe("run", () => {
 		checkStats(stats);
 
 		const { entrypoints } = stats.toJson({ all: false, entrypoints: true });
-		expect(Object.keys(entrypoints!).sort()).toEqual([
+		expect(Object.keys(entrypoints!).sort()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 		]);
@@ -129,9 +143,11 @@ describe("run", () => {
 			all: false,
 			assets: true,
 		});
-		expect(assets?.map((asset: { name: string }) => asset.name).sort()).toEqual(
-			["a.entry.js.mjs", "b/b.entry.js.mjs", "importmap.json"],
-		);
+		expect(assets?.map((asset) => asset.name).sort()).toStrictEqual([
+			"a.entry.js.mjs",
+			"b/b.entry.js.mjs",
+			"importmap.json",
+		]);
 	});
 
 	test("emits correct import map", async ({ tmp }) => {
@@ -139,16 +155,7 @@ describe("run", () => {
 		const stats = await run(compiler);
 		checkStats(stats);
 
-		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
-
-		expect(importmap).toBe(
-			JSON.stringify({
-				imports: {
-					"a.entry.js": "/a.entry.js.mjs",
-					"b/b.entry.js": "/b/b.entry.js.mjs",
-				},
-			}),
-		);
+		await checkImportMap(tmp);
 	});
 
 	test("emits unminified import map in development", async ({ tmp }) => {
@@ -158,9 +165,8 @@ describe("run", () => {
 		const stats = await run(compiler);
 		checkStats(stats);
 
-		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
-
-		expect(importmap).toBe(
+		await checkImportMap(
+			tmp,
 			JSON.stringify(
 				{
 					imports: {
@@ -183,9 +189,8 @@ describe("run", () => {
 		const stats = await run(compiler);
 		checkStats(stats);
 
-		const importmap = await fs.readFile(`${tmp}/dist/importmap.json`, "utf-8");
-
-		expect(importmap).toBe(
+		await checkImportMap(
+			tmp,
 			JSON.stringify({
 				imports: {
 					"a.entry.js": "/public/a.entry.js.mjs",
@@ -225,7 +230,7 @@ describe("run", () => {
 		expect
 			.soft(distA)
 			.toMatchInlineSnapshot(
-				`"var r={},e={};function t(o){var n=e[o];if(void 0!==n)return n.exports;var a=e[o]={exports:{}};return r[o](a,a.exports,t),a.exports}t.d=function(r,e){for(var o in e)t.o(e,o)&&!t.o(r,o)&&Object.defineProperty(r,o,{enumerable:!0,get:e[o]})},t.o=function(r,e){return Object.prototype.hasOwnProperty.call(r,e)},t.rv=function(){return"1.0.14"},t.ruid="bundler=rspack@1.0.14";var o={};t.d(o,{Z:function(){return n}}),console.log("a");let n="a";var a=o.Z;export{a as default};"`,
+				`"var r={},e={};function o(t){var a=e[t];if(void 0!==a)return a.exports;var p=e[t]={exports:{}};return r[t](p,p.exports,o),p.exports}o.d=(r,e)=>{for(var t in e)o.o(e,t)&&!o.o(r,t)&&Object.defineProperty(r,t,{enumerable:!0,get:e[t]})},o.o=(r,e)=>Object.prototype.hasOwnProperty.call(r,e),o.rv=()=>"1.3.12",o.ruid="bundler=rspack@1.3.12";var t={};o.d(t,{Z:()=>a}),console.log("a");let a="a";var p=t.Z;export{p as default};"`,
 			);
 		expect(hasModuleSyntax).toBe(true);
 		expect(exports[0]).toHaveProperty("n", "default"); // n=name
@@ -243,7 +248,7 @@ describe("run", () => {
 		checkStats(stats);
 
 		const { entrypoints } = stats.toJson({ all: false, entrypoints: true });
-		expect(Object.keys(entrypoints!).sort()).toEqual([
+		expect(Object.keys(entrypoints!).sort()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 		]);
@@ -252,11 +257,41 @@ describe("run", () => {
 			all: false,
 			assets: true,
 		});
-		expect(assets?.map((asset) => asset.name).sort()).toEqual([
+		expect(assets?.map((asset) => asset.name).sort()).toStrictEqual([
 			"a.entry.js.mjs",
 			"b/b.entry.js.mjs",
 			"importmap.json",
 		]);
+	});
+
+	test("works with single runtime chunk", async ({ tmp }) => {
+		const compiler = await setup(tmp, {
+			config: merge(config, {
+				optimization: {
+					runtimeChunk: "single",
+				},
+			}),
+		});
+
+		const stats = await run(compiler);
+		checkStats(stats);
+
+		await checkImportMap(tmp);
+	});
+
+	test("works with multiple runtime chunks", async ({ tmp }) => {
+		const compiler = await setup(tmp, {
+			config: merge(config, {
+				optimization: {
+					runtimeChunk: "multiple",
+				},
+			}),
+		});
+
+		const stats = await run(compiler);
+		checkStats(stats);
+
+		await checkImportMap(tmp);
 	});
 
 	describe("HtmlWebpackPlugin", () => {
@@ -514,7 +549,7 @@ describe("watch", () => {
 			all: false,
 			entrypoints: true,
 		});
-		expect(Object.keys(entrypoints!).toSorted()).toEqual([
+		expect(Object.keys(entrypoints!).toSorted()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 		]);
@@ -534,7 +569,7 @@ describe("watch", () => {
 			all: false,
 			entrypoints: true,
 		}));
-		expect(Object.keys(entrypoints!).toSorted()).toEqual([
+		expect(Object.keys(entrypoints!).toSorted()).toStrictEqual([
 			"a.entry.js",
 			"b/b.entry.js",
 			"c/c/c.entry.js",

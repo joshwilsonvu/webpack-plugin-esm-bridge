@@ -36,9 +36,9 @@ export default function WebpackPluginGlobEntry<
 	let _paths: Array<string> | null = null; // cache
 	async function getFreshPaths(compiler: Compiler): Promise<Array<string>> {
 		_paths = await loadPaths(patterns, {
-			cwd: compiler.context,
 			fs: (compiler.inputFileSystem ?? (await import("node:fs"))) as any,
 			...options.globbyOptions,
+			cwd: compiler.context,
 		});
 		return _paths;
 	}
@@ -97,14 +97,32 @@ export default function WebpackPluginGlobEntry<
 			for (let [entrypoint, desc] of entries) {
 				entrypoint = formatEntrypoint(entrypoint, options.importMap);
 
-				const outputFiles = desc.assets?.filter(
+				let outputFiles = desc.assets?.filter(
 					(asset) => !/\.(?:map|gz|br)$/.test(asset.name) && !("info" in asset),
 				);
 				if (outputFiles) {
 					if (outputFiles.length > 1) {
+						// ignore any runtime chunks if present, best effort
+						const runtimeChunk = compilation.options.optimization.runtimeChunk;
+						const runtimeName =
+							runtimeChunk &&
+							typeof runtimeChunk === "object" &&
+							"name" in runtimeChunk &&
+							typeof runtimeChunk.name === "string" &&
+							runtimeChunk.name !== "single" &&
+							runtimeChunk.name !== "multiple"
+								? runtimeChunk.name
+								: "runtime";
+						if (runtimeName) {
+							outputFiles = outputFiles.filter(
+								(asset) => !asset.name.includes(runtimeName),
+							);
+						}
+					}
+					if (outputFiles.length > 1) {
 						throw new Error(`Multiple assets found for entry ${entrypoint}`);
 					}
-					if (outputFiles.length !== 1) {
+					if (outputFiles.length < 1) {
 						throw new Error(`No assets found for entry ${entrypoint}`);
 					}
 
@@ -195,11 +213,18 @@ export default function WebpackPluginGlobEntry<
 							importmap = await generateImportMap(compilation as Compilation);
 						}
 						if (importmap != null) {
-							assets[options.importMap!.fileName!] =
-								new compiler.webpack.sources.OriginalSource(
-									formatImportmap(),
-									options.importMap!.fileName!,
-								);
+							const fileName = options.importMap!.fileName!;
+							const source = new compiler.webpack.sources.OriginalSource(
+								formatImportmap(),
+								fileName,
+							);
+							if (compilation.getAsset(fileName)) {
+								compilation.updateAsset(fileName, source, {
+									minimized: minify,
+								});
+							} else {
+								compilation.emitAsset(fileName, source, { minimized: minify });
+							}
 						}
 					},
 				);
