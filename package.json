@@ -1,7 +1,7 @@
 {
 	"name": "@joshwilsonvu/webpack-plugin-esm-bridge",
 	"type": "module",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"packageManager": "pnpm@9.12.3",
 	"description": "Readable, granular, and performant JS loading for HTML.",
 	"license": "MIT",
@@ -13,7 +13,15 @@
 	"bugs": {
 		"url": "https://github.com/joshwilsonvu/webpack-plugin-esm-bridge/issues"
 	},
-	"keywords": ["webpack", "rspack", "glob", "entry", "import", "esm", "html"],
+	"keywords": [
+		"webpack",
+		"rspack",
+		"glob",
+		"entry",
+		"import",
+		"esm",
+		"html"
+	],
 	"exports": {
 		".": {
 			"import": "./dist/index.js",
@@ -28,7 +36,9 @@
 	"main": "dist/index.cjs",
 	"module": "dist/index.js",
 	"types": "dist/index.d.ts",
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"build": "tsup",
 		"dev": "tsup --watch src",
