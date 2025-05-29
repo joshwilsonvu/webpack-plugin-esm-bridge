@@ -36,7 +36,6 @@ export default function WebpackPluginGlobEntry<
 	let _paths: Array<string> | null = null; // cache
 	async function getFreshPaths(compiler: Compiler): Promise<Array<string>> {
 		_paths = await loadPaths(patterns, {
-			baseNameMatch: true,
 			cwd: compiler.context,
 			fs: (compiler.inputFileSystem ?? (await import("node:fs"))) as any,
 			...options.globbyOptions,

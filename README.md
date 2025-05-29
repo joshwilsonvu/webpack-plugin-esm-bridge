@@ -29,7 +29,7 @@ export function doSomething(value: string) { /* ... */ }
 </script>
 ```
 
-or, 
+or,
 
 ```html
 <script type="module" src="my-module.entry.ts"></script>
@@ -43,7 +43,7 @@ source file to the generated JS bundle. Creating entry points as easily as renam
 to break up your JS into smaller bundles and only load what's needed for a particular page or
 partial. The import map keeps your templates clean and maintainable.
 
-> [!WARNING] 
+> [!WARNING]
 > This plugin enables Webpack/Rspack's [experimental support for generating
 > ESM](https://webpack.js.org/configuration/experiments/#experimentsoutputmodule) if not already
 > enabled. Track Webpack's progress [here](https://github.com/webpack/webpack/issues/2933).
@@ -71,7 +71,7 @@ modern JS tools without complicating development.
 <details>
 <summary>Preloading</summary>
 
-Because each entry point is bundled, preloading modules is usually not necessary—bundles are loaded as the HTML is parsed, and bundles typically don't need to load more JS that would cause a waterfall. 
+Because each entry point is bundled, preloading modules is usually not necessary—bundles are loaded as the HTML is parsed, and bundles typically don't need to load more JS that would cause a waterfall.
 
 If you want to prefetch an entry point anyway (i.e. for navigation that doesn't involve a full page load), you can
 add a `modulepreload` link as appropriate, or use a dynamic import. These work with import maps.
@@ -150,5 +150,5 @@ for import map generation to work.
 | `importMap.integrity` | `boolean` | `false` | Whether to add [subresource integrity](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap#integrity) to the import map. May increase compilation time and import map size. |
 | `importMap.onCreate` | `(importMap: ImportMap) => void \| Promise<void>` | | A function to arbitrarily modify the generated import map. Can be used to merge in other entries not controlled by this plugin. |
 | `importMap.disabled` | `boolean` | `false` | Disables generation of the import map altogether. The plugin will only add entry points matching `'patterns'`. |
-| `globbyOptions` | `object` | | Additional options to pass to [globby](https://www.npmjs.com/package/globby). Can be used to override the `cwd` to search in, among other things. |
+| `globbyOptions` | `object` | | Additional options to pass to [globby](https://www.npmjs.com/package/globby). Can be used to override the `cwd` to search in, or respect `.gitignore` with `gitignore: true`, among other things. |
 | `noHtmlWebpackPlugin` | `boolean` | `false` | Disables the built-in integration with [`html-webpack-plugin`](https://www.npmjs.com/package/html-webpack-plugin). By default, the import map will be automatically inlined into the HTML template for you. |

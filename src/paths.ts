@@ -27,19 +27,12 @@ export function formatEntrypoint(
 	return entrypoint;
 }
 
-export function formatAsset(
-	assetPath: string,
-	publicPath: string,
-	trimExtension?: boolean | null,
-): string {
-	let formatted: string;
+export function formatAsset(assetPath: string, publicPath: string): string {
 	if (URL.canParse(publicPath)) {
-		formatted = new URL(forward(assetPath), publicPath).href;
-	} else {
-		const sep = publicPath.endsWith("/") ? "" : "/";
-		formatted = `${publicPath}${sep}${forward(assetPath)}`;
+		return new URL(forward(assetPath), publicPath).href;
 	}
-	return formatted;
+	const sep = publicPath.endsWith("/") ? "" : "/";
+	return `${publicPath}${sep}${forward(assetPath)}`;
 }
 
 export async function loadPaths(
@@ -50,5 +43,10 @@ export async function loadPaths(
 		return [];
 	}
 	const { globby } = await import("globby"); // import ESM from maybe CJS
-	return globby(patterns, { onlyFiles: true, unique: true, ...options });
+	return globby(patterns, {
+		onlyFiles: true,
+		baseNameMatch: true,
+		ignore: ["**/node_modules/**/*", ...(options?.ignore ?? [])],
+		...options,
+	});
 }
