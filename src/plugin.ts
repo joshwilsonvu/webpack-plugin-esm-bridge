@@ -120,7 +120,11 @@ export default function WebpackPluginGlobEntry<
 						}
 					}
 					if (outputFiles.length > 1) {
-						throw new Error(`Multiple assets found for entry ${entrypoint}`);
+						throw new Error(
+							`Multiple assets found for entry ${entrypoint}: ${outputFiles
+								.map((f) => f.name)
+								.join(", ")}`,
+						);
 					}
 					if (outputFiles.length < 1) {
 						throw new Error(`No assets found for entry ${entrypoint}`);
